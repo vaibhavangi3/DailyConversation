@@ -1,0 +1,99 @@
+package com.dailyconversation.analysis;
+
+import com.dailyconversation.domain.ConversationAnalysis;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.List;
+
+@Service
+public class GoogleAiAnalyzer {
+    private static final Logger log = LoggerFactory.getLogger(GoogleAiAnalyzer.class);
+    private final ObjectMapper objectMapper;
+    private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    private final String apiKey;
+    private final String model;
+    private final String baseUrl;
+
+    public GoogleAiAnalyzer(ObjectMapper objectMapper,
+                            @Value("${google.ai.api-key}") String apiKey,
+                            @Value("${google.ai.model}") String model,
+                            @Value("${google.ai.base-url}") String baseUrl) {
+        this.objectMapper = objectMapper;
+        // Strip accidental surrounding quotes (e.g. key="AIza..." in .properties)
+        this.apiKey = apiKey == null ? "" : apiKey.trim().replaceAll("^\"|\"$", "");
+        this.model = model;
+        this.baseUrl = baseUrl;
+    }
+
+    public AnalysisResult analyze(String transcript, String provider) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return new AnalysisResult(ConversationAnalysis.fallback(transcript, provider, true), "FALLBACK_NO_API_KEY");
+        }
+        String prompt = """
+                You are a learning journal assistant. Analyze this AI chat transcript and return ONLY valid JSON.
+                Schema: {"title":"string","topic":"string","summary":"string","keyLearnings":["string"],"concepts":["string"],"studyMethod":"string","estimatedMinutes":number,"difficulty":"Beginner|Intermediate|Advanced","nextSteps":["string"]}
+                Infer estimatedMinutes from the depth and length of the exchange. Keep arrays concise (3 to 6 items).
+                Do not include markdown fences or extra keys. Provider: %s
+                Transcript:
+                %s
+                """.formatted(provider, transcript.length() > 100_000 ? transcript.substring(0, 100_000) : transcript);
+        try {
+            String body = objectMapper.writeValueAsString(new Request(
+                    List.of(new Content(List.of(new Part(prompt)))), new GenerationConfig("application/json")));
+            URI endpoint = URI.create(baseUrl + "/models/" + model + ":generateContent");
+            HttpRequest request = HttpRequest.newBuilder(endpoint)
+                    .timeout(Duration.ofSeconds(45))
+                    .header("Content-Type", "application/json")
+                    .header("x-goog-api-key", apiKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() / 100 != 2) {
+                log.error("Google AI returned HTTP {}: {}", response.statusCode(), response.body());
+                throw new IllegalArgumentException("Google AI returned HTTP " + response.statusCode());
+            }
+            JsonNode root = objectMapper.readTree(response.body());
+            JsonNode partsNode = root.path("candidates").path(0).path("content").path("parts");
+            String text = "";
+            if (partsNode.isArray()) {
+                for (JsonNode part : partsNode) {
+                    if (part.has("text") && !part.path("thought").asBoolean(false)) {
+                        text = part.get("text").asText();
+                        if (!text.isBlank()) break;
+                    }
+                }
+            }
+            if (text.isBlank()) {
+                text = partsNode.path(0).path("text").asText();
+            }
+            if (text.isBlank()) throw new IllegalArgumentException("Google AI returned no text");
+            String json = text.replaceFirst("^```json\\s*", "").replaceFirst("\\s*```$", "").trim();
+            return new AnalysisResult(objectMapper.readValue(json, ConversationAnalysis.class), "ANALYZED");
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            log.warn("Google AI analysis was interrupted; saving a fallback summary");
+            return new AnalysisResult(ConversationAnalysis.fallback(transcript, provider), "FALLBACK_AI_ERROR");
+        } catch (IOException | RuntimeException exception) {
+            log.warn("Google AI analysis failed: {}; saving a fallback summary", exception.getMessage());
+            return new AnalysisResult(ConversationAnalysis.fallback(transcript, provider), "FALLBACK_AI_ERROR");
+        }
+    }
+
+    public record AnalysisResult(ConversationAnalysis analysis, String status) { }
+
+    private record Request(List<Content> contents, GenerationConfig generationConfig) { }
+    private record Content(List<Part> parts) { }
+    private record Part(String text) { }
+    private record GenerationConfig(String responseMimeType) { }
+}
