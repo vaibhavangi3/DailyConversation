@@ -72,6 +72,10 @@ public class ConversationRepository {
                 (rs, rowNum) -> new ApiModels.DailyLearningStat(rs.getString("date"), rs.getInt("minutes"), rs.getInt("count")));
     }
 
+    public void deleteById(String id) {
+        jdbc.update("DELETE FROM conversations WHERE id = ?", id);
+    }
+
     private Conversation map(ResultSet rs, int rowNum) throws SQLException {
         return new Conversation(rs.getString("id"), rs.getString("provider"), rs.getString("source_url"),
                 rs.getString("title"), rs.getString("summary"), rs.getString("context"), readList(rs.getString("keywords_json")), rs.getInt("effort_score"),

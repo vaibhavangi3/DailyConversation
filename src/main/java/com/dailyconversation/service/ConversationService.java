@@ -82,4 +82,9 @@ public class ConversationService {
                 })
                 .toList();
     }
+
+    public void delete(String id) {
+        get(id);
+        repository.deleteById(id);
+    }
 }

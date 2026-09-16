@@ -43,6 +43,12 @@ public class ConversationController {
         return service.leaderboard(sort, provider, topic);
     }
 
+    @DeleteMapping("/conversations/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable String id) {
+        service.delete(id);
+    }
+
     private ApiModels.ConversationResponse response(Conversation conversation) {
         return new ApiModels.ConversationResponse(conversation.id(), conversation.provider(), conversation.sourceUrl(),
                 conversation.title(), conversation.summary(), conversation.context(), conversation.keywords(), conversation.effortScore(), conversation.inputTokens(), conversation.outputTokens(),
