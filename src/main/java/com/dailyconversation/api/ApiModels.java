@@ -15,6 +15,11 @@ public final class ApiModels {
             String sourceUrl,
             String title,
             String summary,
+            String context,
+            List<String> keywords,
+            int effortScore,
+            int inputTokens,
+            int outputTokens,
             String topic,
             String studyMethod,
             String difficulty,
@@ -33,8 +38,12 @@ public final class ApiModels {
             int topicCount,
             String topTopic,
             List<TopicStat> topics,
-            List<ProviderStat> providers) { }
+            List<ProviderStat> providers,
+            List<DailyLearningStat> dailyLearning) { }
 
     public record TopicStat(String topic, int minutes, int count) { }
     public record ProviderStat(String provider, int count) { }
+    public record DailyLearningStat(String date, int minutes, int count) { }
+    public record LeaderboardEntry(String id, String title, String provider, String topic, Instant importedAt,
+                                   int estimatedMinutes, int inputTokens, int outputTokens, int effortScore) { }
 }

@@ -11,9 +11,12 @@ async function loadDashboard() {
   renderStats(stats);
   renderSessions();
   renderTopics(stats.topics);
+  renderDailyLearning(stats.dailyLearning || []);
+  loadLeaderboard();
 }
 
 function assertResponse(response) {
+  if (response.status === 401) throw new Error('Please sign in to Daily Conversation, then refresh this page.');
   if (!response.ok) throw new Error('Unable to load the learning log.');
   return response;
 }
@@ -23,6 +26,7 @@ function renderStats(stats) {
   $('#learning-time').innerHTML = `${Math.floor(stats.learningMinutes / 60)}<span>h</span> ${String(stats.learningMinutes % 60).padStart(2, '0')}<span>m</span>`;
   $('#topic-count').textContent = stats.topicCount;
   $('#top-topic').textContent = stats.topTopic;
+  $('#topic-count-label').textContent = `${stats.topicCount} ${stats.topicCount === 1 ? 'area' : 'areas'} explored`;
 }
 
 function renderSessions() {
@@ -33,7 +37,7 @@ function renderSessions() {
     return;
   }
   list.innerHTML = filtered.map((item) => `<article class="session" data-id="${item.id}">
-    <div class="session-bar"></div><div><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.summary)}</p><div class="session-meta"><span class="provider">${escapeHtml(item.provider)}</span><b>${escapeHtml(item.topic)}</b><span>·</span><span>${item.estimatedMinutes} min</span></div></div><span class="duration">${formatDate(item.importedAt)}</span>
+    <div class="session-bar"></div><div><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.summary)}</p><div class="session-meta"><span class="provider">${escapeHtml(item.provider)}</span><b>${escapeHtml(item.topic)}</b><span>·</span><span>${item.estimatedMinutes} min</span><span>·</span><span class="effort-chip">Effort ${item.effortScore}/100</span></div></div><span class="duration">${formatDate(item.importedAt)}</span>
   </article>`).join('');
   list.querySelectorAll('.session').forEach((item) => item.addEventListener('click', () => openDetail(item.dataset.id)));
 }
@@ -43,6 +47,37 @@ function renderTopics(topics) {
   if (!topics.length) { target.innerHTML = '<p class="muted">Your topics will appear here.</p>'; return; }
   const max = Math.max(...topics.map((topic) => topic.minutes));
   target.innerHTML = topics.slice(0, 6).map((topic) => `<div class="topic-row"><div class="topic-row-head"><span>${escapeHtml(topic.topic)}</span><span>${topic.minutes} min · ${topic.count} ${topic.count === 1 ? 'session' : 'sessions'}</span></div><div class="bar-bg"><div class="bar-fill" style="width:${Math.max(8, Math.round(topic.minutes / max * 100))}%"></div></div></div>`).join('');
+}
+
+function renderDailyLearning(days) {
+  const target = $('#daily-list');
+  if (!days.length) { target.innerHTML = '<p class="muted">Your daily learning time will appear here.</p>'; return; }
+  target.innerHTML = days.slice(0, 10).map((day) => `<div class="daily-row"><span>${formatDay(day.date)}</span><b>${day.minutes} min</b><small>${day.count} ${day.count === 1 ? 'session' : 'sessions'}</small></div>`).join('');
+}
+
+async function loadLeaderboard() {
+  const params = new URLSearchParams({ sort: $('#leaderboard-sort').value });
+  const provider = $('#leaderboard-provider').value;
+  if (provider) params.set('provider', provider);
+  const response = await fetch(`/api/leaderboard?${params}`);
+  if (!response.ok) return;
+  renderLeaderboard(await response.json());
+}
+
+function renderLeaderboard(entries) {
+  const target = $('#leaderboard-list');
+  if (!entries.length) { target.innerHTML = '<p class="muted">No sessions match these filters.</p>'; return; }
+  target.innerHTML = entries.slice(0, 10).map((item, index) => `<article class="leaderboard-row" data-id="${escapeAttribute(item.id)}"><span class="rank">${index + 1}</span><div><h3>${escapeHtml(item.title)}</h3><p><span class="provider">${escapeHtml(item.provider)}</span> ${escapeHtml(item.topic)} · ${formatDate(item.importedAt)}</p></div><div class="leaderboard-metrics"><b>${leaderboardMetric(item)}</b><small>Effort ${item.effortScore}/100</small></div></article>`).join('');
+  target.querySelectorAll('.leaderboard-row').forEach((row) => row.addEventListener('click', () => openDetail(row.dataset.id)));
+}
+
+function leaderboardMetric(item) {
+  const sort = $('#leaderboard-sort').value;
+  if (sort === 'latest') return formatDate(item.importedAt);
+  if (sort === 'input_tokens') return `${item.inputTokens.toLocaleString()} in tokens`;
+  if (sort === 'output_tokens') return `${item.outputTokens.toLocaleString()} out tokens`;
+  if (sort === 'effort') return `${item.effortScore}/100 effort`;
+  return `${item.estimatedMinutes} min`;
 }
 
 async function importConversation(event) {
@@ -60,8 +95,8 @@ async function importConversation(event) {
 
 function openDetail(id) {
   const item = state.conversations.find((conversation) => conversation.id === id); if (!item) return;
-  const isStale = item.analysisStatus === 'FALLBACK_NO_API_KEY' || item.analysisStatus === 'FALLBACK_AI_ERROR';
-  $('#detail-content').innerHTML = `<p class="eyebrow">${escapeHtml(item.provider)} · ${escapeHtml(item.topic)}</p><h2>${escapeHtml(item.title)}</h2><p class="detail-summary">${escapeHtml(item.summary)}</p><div class="detail-columns"><div class="detail-block"><h4>KEY LEARNINGS</h4><ul>${item.keyLearnings.map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul></div><div class="detail-block"><h4>CONCEPTS</h4><div class="tag-list">${item.concepts.map((value) => `<span class="tag">${escapeHtml(value)}</span>`).join('')}</div><h4 style="margin-top:22px">HOW YOU LEARNT</h4><p style="font-size:12px;color:#526168">${escapeHtml(item.studyMethod)} · ${escapeHtml(item.difficulty)}</p></div></div><div class="detail-block" style="margin-top:24px"><h4>NEXT STEPS</h4><ul>${item.nextSteps.map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul></div><div class="detail-footer"><span>Estimated ${item.estimatedMinutes} minutes · ${formatDate(item.importedAt)}</span><div style="display:flex;gap:12px;align-items:center">${isStale ? `<button id="reanalyze-btn" style="background:#2ec4b6;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">Re-analyse ↻</button>` : ''}<a href="${escapeAttribute(item.sourceUrl)}" target="_blank" rel="noreferrer">Open original ↗</a></div></div>`;
+  const isStale = item.analysisStatus === 'FALLBACK_NO_API_KEY' || item.analysisStatus === 'FALLBACK_AI_ERROR' || item.effortScore === 0 || !(item.keywords || []).length;
+  $('#detail-content').innerHTML = `<p class="eyebrow">${escapeHtml(item.provider)} · ${escapeHtml(item.topic)}</p><h2>${escapeHtml(item.title)}</h2><p class="detail-summary">${escapeHtml(item.context || item.summary)}</p><div class="insight-row"><div class="effort-card"><span class="insight-label">LEARNING EFFORT</span><strong>${item.effortScore}<small>/100</small></strong><div class="effort-track"><span style="width:${Math.max(0, Math.min(100, item.effortScore))}%"></span></div><p>Based on observable questions, follow-ups, attempts, and application.</p></div><div class="detail-block"><h4>KEYWORDS</h4><div class="tag-list">${(item.keywords || []).map((value) => `<span class="tag">${escapeHtml(value)}</span>`).join('')}</div><h4 style="margin-top:22px">HOW YOU LEARNT</h4><p style="font-size:12px;color:#526168">${escapeHtml(item.studyMethod)} · ${escapeHtml(item.difficulty)}</p></div></div><div class="detail-columns"><div class="detail-block"><h4>KEY LEARNINGS</h4><ul>${item.keyLearnings.map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul></div><div class="detail-block"><h4>CONCEPTS</h4><div class="tag-list">${item.concepts.map((value) => `<span class="tag">${escapeHtml(value)}</span>`).join('')}</div></div></div><div class="detail-block" style="margin-top:24px"><h4>NEXT STEPS</h4><ul>${item.nextSteps.map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul></div><div class="detail-footer"><span>Estimated ${item.estimatedMinutes} minutes · ${formatDate(item.importedAt)}</span><div style="display:flex;gap:12px;align-items:center">${isStale ? `<button id="reanalyze-btn" style="background:#2ec4b6;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px">Re-analyse ↻</button>` : ''}<a href="${escapeAttribute(item.sourceUrl)}" target="_blank" rel="noreferrer">Open original ↗</a></div></div>`;
   if (isStale) {
     $('#reanalyze-btn').addEventListener('click', () => reanalyze(id));
   }
@@ -81,6 +116,7 @@ async function reanalyze(id) {
 }
 
 function formatDate(value) { return new Intl.DateTimeFormat(undefined, { month:'short', day:'numeric' }).format(new Date(value)); }
+function formatDay(value) { return new Intl.DateTimeFormat(undefined, { weekday:'short', month:'short', day:'numeric' }).format(new Date(`${value}T00:00:00`)); }
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char])); }
 function escapeAttribute(value) { return escapeHtml(value).replace(/`/g, '&#96;'); }
 
@@ -88,4 +124,6 @@ $('#import-form').addEventListener('submit', importConversation);
 $('#refresh').addEventListener('click', () => loadDashboard().catch((error) => { $('#form-note').textContent = error.message; }));
 $('#close-detail').addEventListener('click', () => $('#detail-dialog').close());
 document.querySelectorAll('.filter').forEach((button) => button.addEventListener('click', () => { document.querySelectorAll('.filter').forEach((item) => item.classList.remove('active')); button.classList.add('active'); state.filter = button.dataset.filter; renderSessions(); }));
-loadDashboard().catch(() => { $('#session-list').innerHTML = '<div class="empty"><span>!</span><p>Could not load your journal</p><small>Make sure the Spring Boot server is running.</small></div>'; });
+$('#leaderboard-sort').addEventListener('change', () => loadLeaderboard().catch(() => {}));
+$('#leaderboard-provider').addEventListener('change', () => loadLeaderboard().catch(() => {}));
+loadDashboard().catch((error) => { $('#session-list').innerHTML = `<div class="empty"><span>!</span><p>Could not load your journal</p><small>${escapeHtml(error.message || 'Make sure the Spring Boot server is running.')}</small></div>`; });

@@ -35,9 +35,18 @@ public class ConversationController {
     @GetMapping("/stats")
     public ApiModels.StatsResponse stats() { return service.stats(); }
 
+    @GetMapping("/leaderboard")
+    public List<ApiModels.LeaderboardEntry> leaderboard(
+            @RequestParam(defaultValue = "time") String sort,
+            @RequestParam(required = false) String provider,
+            @RequestParam(required = false) String topic) {
+        return service.leaderboard(sort, provider, topic);
+    }
+
     private ApiModels.ConversationResponse response(Conversation conversation) {
         return new ApiModels.ConversationResponse(conversation.id(), conversation.provider(), conversation.sourceUrl(),
-                conversation.title(), conversation.summary(), conversation.topic(), conversation.studyMethod(),
+                conversation.title(), conversation.summary(), conversation.context(), conversation.keywords(), conversation.effortScore(), conversation.inputTokens(), conversation.outputTokens(),
+                conversation.topic(), conversation.studyMethod(),
                 conversation.difficulty(), conversation.estimatedMinutes(), conversation.importedAt(), conversation.analyzedAt(),
                 conversation.analysisStatus(), conversation.keyLearnings(), conversation.concepts(), conversation.nextSteps(),
                 conversation.transcript());

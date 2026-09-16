@@ -8,10 +8,11 @@ Requirements: Java 17+ and Maven 3.9+.
 
 ```powershell
 $env:GOOGLE_AI_API_KEY = ""
+$env:ADMIN_PASSWORD = "choose-a-local-password"
 mvn spring-boot:run
 ```
 
-Open `http://localhost:8080`.
+Open `http://localhost:8080` and sign in with username `admin` and the `ADMIN_PASSWORD` value. The API is protected, so the dashboard must have an authenticated browser session.
 
 The key is optional while developing. Without it, imports still work using a small local fallback summary. Set `DB_PATH` to move the SQLite file, and `GOOGLE_AI_MODEL` to select another Gemini model.
 

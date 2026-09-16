@@ -52,16 +52,7 @@ public class ConversationLinkImporter {
         URI uri = parseAndValidate(rawUrl);
         Provider provider = providerFor(uri.getHost());
         try {
-            HttpRequest request = HttpRequest.newBuilder(uri)
-                    .timeout(Duration.ofSeconds(20))
-                    .header("User-Agent", "DailyConversation/1.0 (learning journal)")
-                    .header("Accept", "text/html,application/xhtml+xml")
-                    .GET()
-                    .build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() >= 300 && response.statusCode() < 400) {
-                throw new IllegalArgumentException("The shared page redirected. Please paste the final public share link.");
-            }
+            HttpResponse<String> response = fetchSharedPage(uri);
             if (response.statusCode() != 200) {
                 throw new IllegalArgumentException("The shared page returned HTTP " + response.statusCode() + ". Check that it is public.");
             }
@@ -73,15 +64,37 @@ public class ConversationLinkImporter {
             Thread.currentThread().interrupt();
             throw new IllegalArgumentException("The shared page request was interrupted.");
         } catch (IOException exception) {
-            throw new IllegalArgumentException("The shared page could not be reached. Check the URL and try again.");
+            throw new IllegalArgumentException("The shared page could not be reached (" + exception.getClass().getSimpleName() + "). Check that the link is public and try again.");
         }
+    }
+
+    private HttpResponse<String> fetchSharedPage(URI initialUri) throws IOException, InterruptedException {
+        URI current = initialUri;
+        for (int attempt = 0; attempt < 4; attempt++) {
+            HttpRequest request = HttpRequest.newBuilder(current)
+                    .timeout(Duration.ofSeconds(20))
+                    .header("User-Agent", "DailyConversation/1.0 (learning journal)")
+                    .header("Accept", "text/html,application/xhtml+xml")
+                    .GET()
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 300 || response.statusCode() >= 400) return response;
+
+            String location = response.headers().firstValue("location").orElse("");
+            URI redirected = location.isBlank() ? null : current.resolve(location);
+            if (redirected == null || !isAllowedHost(redirected) || !"https".equalsIgnoreCase(redirected.getScheme())) {
+                throw new IllegalArgumentException("The shared page redirected to an unsupported URL. Please use the original public share link.");
+            }
+            current = redirected;
+        }
+        throw new IllegalArgumentException("The shared page redirected too many times. Please use the final public share link.");
     }
 
     private URI parseAndValidate(String rawUrl) {
         try {
             URI uri = URI.create(rawUrl.trim());
             String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
-            if (!"https".equalsIgnoreCase(uri.getScheme()) || !ALLOWED_HOSTS.contains(host)) {
+            if (!isAllowedHost(uri)) {
                 throw new IllegalArgumentException("Use a public HTTPS share link from ChatGPT, Gemini, or Claude.");
             }
             return uri;
@@ -90,6 +103,11 @@ public class ConversationLinkImporter {
         } catch (Exception exception) {
             throw new IllegalArgumentException("That does not look like a valid share URL.");
         }
+    }
+
+    private boolean isAllowedHost(URI uri) {
+        String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+        return "https".equalsIgnoreCase(uri.getScheme()) && ALLOWED_HOSTS.contains(host);
     }
 
     private Provider providerFor(String host) {

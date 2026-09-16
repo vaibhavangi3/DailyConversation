@@ -42,8 +42,10 @@ public class GoogleAiAnalyzer {
         }
         String prompt = """
                 You are a learning journal assistant. Analyze this AI chat transcript and return ONLY valid JSON.
-                Schema: {"title":"string","topic":"string","summary":"string","keyLearnings":["string"],"concepts":["string"],"studyMethod":"string","estimatedMinutes":number,"difficulty":"Beginner|Intermediate|Advanced","nextSteps":["string"]}
-                Infer estimatedMinutes from the depth and length of the exchange. Keep arrays concise (3 to 6 items).
+                Schema: {"title":"string","topic":"string","summary":"string","context":"string","keywords":["string"],"effortScore":number,"keyLearnings":["string"],"concepts":["string"],"studyMethod":"string","estimatedMinutes":number,"difficulty":"Beginner|Intermediate|Advanced","nextSteps":["string"]}
+                The context must be a clear summary of no more than 100 words. Return 4 to 8 concise keywords.
+                Score effortScore from 0 to 100 using only observable user effort: depth of questions, meaningful follow-ups, attempts, corrections, reflection, and application. Do not infer intelligence, motivation, identity, or worth. If evidence is limited, use a middle score and say so in context.
+                Infer estimatedMinutes from the depth and length of the exchange. Keep other arrays concise (3 to 6 items).
                 Do not include markdown fences or extra keys. Provider: %s
                 Transcript:
                 %s
@@ -79,7 +81,8 @@ public class GoogleAiAnalyzer {
             }
             if (text.isBlank()) throw new IllegalArgumentException("Google AI returned no text");
             String json = text.replaceFirst("^```json\\s*", "").replaceFirst("\\s*```$", "").trim();
-            return new AnalysisResult(objectMapper.readValue(json, ConversationAnalysis.class), "ANALYZED");
+            ConversationAnalysis parsed = objectMapper.readValue(json, ConversationAnalysis.class);
+            return new AnalysisResult(withSafeEffort(parsed, transcript), "ANALYZED");
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             log.warn("Google AI analysis was interrupted; saving a fallback summary");
@@ -91,6 +94,26 @@ public class GoogleAiAnalyzer {
     }
 
     public record AnalysisResult(ConversationAnalysis analysis, String status) { }
+
+    private ConversationAnalysis withSafeEffort(ConversationAnalysis analysis, String transcript) {
+        if (analysis.effortScore() > 0) {
+            return new ConversationAnalysis(analysis.title(), analysis.topic(), analysis.summary(), analysis.context(),
+                    analysis.keywords(), Math.min(100, analysis.effortScore()), analysis.keyLearnings(), analysis.concepts(),
+                    analysis.studyMethod(), analysis.estimatedMinutes(), analysis.difficulty(), analysis.nextSteps());
+        }
+        int userTurns = 0;
+        int userWords = 0;
+        for (String line : transcript.split("\\R")) {
+            if (line.trim().toLowerCase().startsWith("user:") || line.trim().toLowerCase().startsWith("human:")) {
+                userTurns++;
+                userWords += line.trim().split("\\s+").length - 1;
+            }
+        }
+        int score = Math.min(95, Math.max(10, 10 + userTurns * 8 + Math.min(35, userWords / 8)));
+        return new ConversationAnalysis(analysis.title(), analysis.topic(), analysis.summary(), analysis.context(),
+                analysis.keywords(), score, analysis.keyLearnings(), analysis.concepts(), analysis.studyMethod(),
+                analysis.estimatedMinutes(), analysis.difficulty(), analysis.nextSteps());
+    }
 
     private record Request(List<Content> contents, GenerationConfig generationConfig) { }
     private record Content(List<Part> parts) { }
