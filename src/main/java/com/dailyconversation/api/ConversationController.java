@@ -15,6 +15,11 @@ public class ConversationController {
 
     public ConversationController(ConversationService service) { this.service = service; }
 
+    @GetMapping("/auth/verify")
+    public java.util.Map<String, Object> verifyAuth(java.security.Principal principal) {
+        return java.util.Map.of("authenticated", true, "username", principal != null ? principal.getName() : "admin");
+    }
+
     @GetMapping("/conversations")
     public List<ApiModels.ConversationResponse> conversations() { return service.all().stream().map(this::response).toList(); }
 
