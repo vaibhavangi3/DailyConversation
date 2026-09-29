@@ -65,9 +65,12 @@ jobs:
             "powershell -NoProfile -Command \"\$p='$REMOTE_JAR'; \$input=[System.Console]::OpenStandardInput(); \$file=[System.IO.File]::Open(\$p,[System.IO.FileMode]::Create,[System.IO.FileAccess]::Write); try { \$input.BaseStream.CopyTo(\$file) } finally { \$file.Dispose() }; Write-Host 'JAR uploaded successfully'\"" < "$JAR"
 
       - name: Verify uploaded JAR
+        shell: bash
         run: |
           set -e
-          ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST"             "powershell -NoProfile -Command \"$p='C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar'; if (-not (Test-Path -LiteralPath $p)) { throw 'JAR upload failed' }; Write-Host ('JAR size: ' + (Get-Item -LiteralPath $p).Length + ' bytes')\""
+          ssh -T -i ~/.ssh/dailyconversation_actions \
+            "$AZURE_USER@$AZURE_HOST" \
+            "powershell -NoProfile -Command \"if (-not (Test-Path -LiteralPath 'C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar')) { throw 'JAR upload failed' }; Write-Host ('JAR size: ' + (Get-Item -LiteralPath 'C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar').Length + ' bytes')\""
 
       - name: Deploy and health check
         run: |
