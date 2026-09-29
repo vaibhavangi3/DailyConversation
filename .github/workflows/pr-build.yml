@@ -59,7 +59,7 @@ jobs:
           JAR="target/daily-conversation-0.0.1-SNAPSHOT.jar"
           # Use a path relative to the Windows SSH user's home directory.
           # For azureUser, this resolves to C:/Users/azureUser/DailyConversation-pr/.
-          REMOTE_JAR="DailyConversation-pr/daily-conversation.jar"
+          REMOTE_JAR="C:/Users/azureUser/DailyConversation-pr/daily-conversation.jar"
           test -f "$JAR"
 
           scp -q -i ~/.ssh/dailyconversation_actions \
