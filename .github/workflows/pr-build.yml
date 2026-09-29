@@ -57,12 +57,25 @@ jobs:
         run: |
           set -euo pipefail
           JAR="target/daily-conversation-0.0.1-SNAPSHOT.jar"
-          REMOTE_JAR="C:/Users/azureUser/DailyConversation-pr/daily-conversation.jar"
           test -f "$JAR"
 
-          ssh -T -i ~/.ssh/dailyconversation_actions \
-            "$AZURE_USER@$AZURE_HOST" \
-            "powershell -NoProfile -Command \"\$p='$REMOTE_JAR'; \$input=[System.Console]::OpenStandardInput(); \$file=[System.IO.File]::Open(\$p,[System.IO.FileMode]::Create,[System.IO.FileAccess]::Write); try { \$input.BaseStream.CopyTo(\$file) } finally { \$file.Dispose() }; Write-Host 'JAR uploaded successfully'\"" < "$JAR"
+          # Verify local JAR is valid
+          local_size=$(stat -c%s "$JAR")
+          echo "Local JAR size: $local_size bytes"
+          test "$local_size" -gt 0
+
+          # Encode to base64 (text-safe), send to Azure over SSH, then decode there.
+          B64=$(base64 -w 0 < "$JAR")
+
+          ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" \
+            "powershell -NoProfile -Command \"\$b64 = @'
+${B64}
+'@
+\$bytes = [Convert]::FromBase64String(\$b64.Trim())
+[IO.File]::WriteAllBytes('C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar', \$bytes)
+\$size = (Get-Item 'C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar').Length
+Write-Host \"JAR uploaded successfully: \$size bytes\"\"
+            "
 
       - name: Verify uploaded JAR
         shell: bash
