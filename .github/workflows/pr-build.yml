@@ -57,14 +57,12 @@ jobs:
         run: |
           set -euo pipefail
           JAR="target/daily-conversation-0.0.1-SNAPSHOT.jar"
-          # Use a path relative to the Windows SSH user's home directory.
-          # For azureUser, this resolves to C:/Users/azureUser/DailyConversation-pr/.
           REMOTE_JAR="C:/Users/azureUser/DailyConversation-pr/daily-conversation.jar"
           test -f "$JAR"
 
-          scp -q -i ~/.ssh/dailyconversation_actions \
-            "$JAR" \
-            "$AZURE_USER@$AZURE_HOST:$REMOTE_JAR"
+          ssh -T -i ~/.ssh/dailyconversation_actions \
+            "$AZURE_USER@$AZURE_HOST" \
+            "powershell -NoProfile -Command \"\$p='$REMOTE_JAR'; \$input=[System.Console]::OpenStandardInput(); \$file=[System.IO.File]::Open(\$p,[System.IO.FileMode]::Create,[System.IO.FileAccess]::Write); try { \$input.BaseStream.CopyTo(\$file) } finally { \$file.Dispose() }; Write-Host 'JAR uploaded successfully'\"" < "$JAR"
 
       - name: Verify uploaded JAR
         run: |
