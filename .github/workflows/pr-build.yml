@@ -57,9 +57,10 @@ jobs:
         run: |
           set -euo pipefail
           JAR="target/daily-conversation-0.0.1-SNAPSHOT.jar"
-          REMOTE_JAR="/C:/Users/azureUser/DailyConversation-pr/daily-conversation.jar"
+          REMOTE_JAR="C:/Users/azureUser/DailyConversation-pr/daily-conversation.jar"
           test -f "$JAR"
 
+          # Windows OpenSSH expects the Windows path without the leading /.
           scp -q -i ~/.ssh/dailyconversation_actions \
             "$JAR" \
             "$AZURE_USER@$AZURE_HOST:$REMOTE_JAR"
