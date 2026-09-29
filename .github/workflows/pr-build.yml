@@ -1,18 +1,13 @@
-name: PR Azure Test
+name: Azure Branch Test
 
 on:
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   build-and-deploy:
-    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
 
     env:
@@ -21,7 +16,7 @@ jobs:
       PR_DIR: C:/Users/azureUser/DailyConversation-pr
 
     steps:
-      - name: Checkout PR
+      - name: Checkout selected branch
         uses: actions/checkout@v4
 
       - name: Set up Java 17
@@ -76,7 +71,6 @@ jobs:
           $env:PORT = '8081'
           $env:DB_PATH = $dbPath
 
-          # Explicitly inherit the Production Machine-level admin credentials.
           $adminUsername = [Environment]::GetEnvironmentVariable('ADMIN_USERNAME', 'Machine')
           $adminPassword = [Environment]::GetEnvironmentVariable('ADMIN_PASSWORD', 'Machine')
           if ([string]::IsNullOrWhiteSpace($adminUsername)) {
@@ -90,7 +84,7 @@ jobs:
           $env:ADMIN_PASSWORD = $adminPassword
 
           $process = Start-Process -FilePath 'java' -ArgumentList '-jar', $jar -WorkingDirectory $dir -RedirectStandardOutput $log -RedirectStandardError $errorLog -WindowStyle Hidden -PassThru
-          Write-Host "Started PR app with PID $($process.Id)"
+          Write-Host "Started branch test app with PID $($process.Id)"
 
           $healthy = $false
           for ($i = 0; $i -lt 30; $i++) {
@@ -112,11 +106,11 @@ jobs:
             exit 1
           }
 
-          Write-Host 'PR application is healthy on port 8081.'
+          Write-Host 'Branch test application is healthy on port 8081.'
           POWERSHELL
 
           encoded=$(iconv -f UTF-8 -t UTF-16LE deploy.ps1 | base64 -w 0)
           ssh -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" "powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded"
 
       - name: Test URL
-        run: echo "PR environment deployed at http://$AZURE_HOST:8081"
+        run: echo "Branch test environment deployed at http://$AZURE_HOST:8081"
