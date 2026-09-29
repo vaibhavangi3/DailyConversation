@@ -42,21 +42,24 @@ jobs:
       - name: Prepare Azure test directory
         run: |
           set -e
-          ssh -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path '$PR_DIR' | Out-Null; New-Item -ItemType Directory -Force -Path '$PR_DIR/data' | Out-Null\""
+          ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST"             "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path '$PR_DIR' | Out-Null; New-Item -ItemType Directory -Force -Path '$PR_DIR/data' | Out-Null\""
 
       - name: Upload application
+        shell: bash
         run: |
           set -euo pipefail
-          test -f target/daily-conversation-0.0.1-SNAPSHOT.jar
-          base64 -w 0 target/daily-conversation-0.0.1-SNAPSHOT.jar | \
-            ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" \
-            "powershell -NoProfile -Command \"[IO.File]::WriteAllBytes('C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar',[Convert]::FromBase64String([Console]::In.ReadToEnd()))\""
+          JAR="target/daily-conversation-0.0.1-SNAPSHOT.jar"
+          test -f "$JAR"
+
+          # SCP is intentionally not used. Windows OpenSSH was rejecting the
+          # destination path. Stream the binary over SSH and write it remotely.
+          base64 "$JAR" | tr -d '\n' |
+            ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST"             'powershell -NoProfile -Command "$b64 = [Console]::In.ReadToEnd(); [IO.File]::WriteAllBytes('"'"'C:\Users\azureUser\DailyConversation-pr\daily-conversation.jar'"'"',[Convert]::FromBase64String($b64))"'
 
       - name: Verify uploaded JAR
         run: |
           set -e
-          ssh -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" \
-            "powershell -NoProfile -Command \"if (-not (Test-Path 'C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar')) { throw 'JAR upload failed: file does not exist' }; Write-Host ('Uploaded JAR size: ' + (Get-Item 'C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar').Length + ' bytes')\""
+          ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST"             "powershell -NoProfile -Command \"$p='C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar'; if (-not (Test-Path -LiteralPath $p)) { throw 'JAR upload failed' }; Write-Host ('JAR size: ' + (Get-Item -LiteralPath $p).Length + ' bytes')\""
 
       - name: Deploy and health check
         run: |
@@ -123,7 +126,7 @@ jobs:
           POWERSHELL
 
           encoded=$(iconv -f UTF-8 -t UTF-16LE deploy.ps1 | base64 -w 0)
-          ssh -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" "powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded"
+          ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" "powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded"
 
       - name: Test URL
         run: echo "Branch test environment deployed at http://$AZURE_HOST:8081"
