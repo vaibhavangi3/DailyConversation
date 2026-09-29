@@ -23,9 +23,7 @@ function assertResponse(response) {
 function renderStats(stats) {
   $('#session-count').textContent = stats.conversationCount;
   $('#learning-time').innerHTML = `${Math.floor(stats.learningMinutes / 60)}<span>h</span> ${String(stats.learningMinutes % 60).padStart(2, '0')}<span>m</span>`;
-  $('#topic-count').textContent = stats.topicCount;
   $('#top-topic').textContent = stats.topTopic;
-  $('#topic-count-label').textContent = `${stats.topicCount} ${stats.topicCount === 1 ? 'area' : 'areas'} explored`;
 }
 
 function renderSessions() {

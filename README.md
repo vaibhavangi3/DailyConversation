@@ -28,3 +28,8 @@ Only HTTPS hosts for ChatGPT, Gemini, and Claude are accepted. Shared links must
 ## Product next steps
 
 The MVP is intentionally single-user and local-first. Before deploying it for multiple users, add authentication, encrypt stored transcripts, move analysis to a background job, add provider-specific authenticated export adapters, and use PostgreSQL for production.
+
+
+<!-- workflow trigger -->
+<!-- workflow trigger -->
+<!-- workflow trigger --> 
