@@ -33,6 +33,7 @@ jobs:
         env:
           SSH_PRIVATE_KEY: ${{ secrets.AZURE_SSH_PRIVATE_KEY }}
         run: |
+          set -e
           mkdir -p ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/dailyconversation_actions
           chmod 600 ~/.ssh/dailyconversation_actions
@@ -40,16 +41,26 @@ jobs:
 
       - name: Prepare Azure test directory
         run: |
+          set -e
           ssh -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path '$PR_DIR' | Out-Null; New-Item -ItemType Directory -Force -Path '$PR_DIR/data' | Out-Null\""
 
       - name: Upload application
         run: |
+          set -euo pipefail
+          test -f target/daily-conversation-0.0.1-SNAPSHOT.jar
           base64 -w 0 target/daily-conversation-0.0.1-SNAPSHOT.jar | \
-            ssh -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" \
+            ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" \
             "powershell -NoProfile -Command \"[IO.File]::WriteAllBytes('C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar',[Convert]::FromBase64String([Console]::In.ReadToEnd()))\""
+
+      - name: Verify uploaded JAR
+        run: |
+          set -e
+          ssh -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" \
+            "powershell -NoProfile -Command \"if (-not (Test-Path 'C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar')) { throw 'JAR upload failed: file does not exist' }; Write-Host ('Uploaded JAR size: ' + (Get-Item 'C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar').Length + ' bytes')\""
 
       - name: Deploy and health check
         run: |
+          set -e
           cat > deploy.ps1 <<'POWERSHELL'
           $ErrorActionPreference = 'Stop'
           $dir = 'C:/Users/azureUser/DailyConversation-pr'
