@@ -1,14 +1,21 @@
-name: Build PR
+name: PR Azure Test Environment
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, closed]
 
 permissions:
   contents: read
 
+env:
+  AZURE_HOST: 40.80.90.85
+  AZURE_USER: azureUser
+  PR_DIR: 'C:/Users/azureUser/DailyConversation-pr'
+  PR_PORT: '8081'
+
 jobs:
   build:
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
 
     steps:
@@ -24,3 +31,91 @@ jobs:
 
       - name: Build
         run: mvn -B clean package -DskipTests
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.AZURE_SSH_PRIVATE_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/dailyconversation_actions
+          chmod 600 ~/.ssh/dailyconversation_actions
+          ssh-keyscan -H "$AZURE_HOST" >> ~/.ssh/known_hosts
+
+      - name: Prepare Azure PR directory
+        run: |
+          ssh -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path '$PR_DIR' | Out-Null; New-Item -ItemType Directory -Force -Path '$PR_DIR/data' | Out-Null\""
+
+      - name: Upload PR jar
+        run: |
+          scp -i ~/.ssh/dailyconversation_actions -O target/daily-conversation-0.0.1-SNAPSHOT.jar "$AZURE_USER@$AZURE_HOST:C:/Users/azureUser/DailyConversation-pr/daily-conversation.jar"
+
+      - name: Deploy and start PR app
+        run: |
+          cat > deploy-pr.ps1 <<'POWERSHELL'
+          $ErrorActionPreference = 'Stop'
+          $dir = 'C:/Users/azureUser/DailyConversation-pr'
+          $jar = Join-Path $dir 'daily-conversation.jar'
+          $log = Join-Path $dir 'app.log'
+          $errorLog = Join-Path $dir 'app-error.log'
+          $dbDir = Join-Path $dir 'data'
+          $dbPath = Join-Path $dbDir 'daily-conversation.db'
+
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          New-Item -ItemType Directory -Force -Path $dbDir | Out-Null
+
+          $oldPids = Get-NetTCPConnection -State Listen -LocalPort 8081 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
+          if ($oldPids) {
+            $oldPids | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }
+            Start-Sleep -Seconds 2
+          }
+
+          $env:PORT = '8081'
+          $env:DB_PATH = $dbPath
+
+          $process = Start-Process -FilePath 'java' -ArgumentList '-jar', $jar -WorkingDirectory $dir -RedirectStandardOutput $log -RedirectStandardError $errorLog -WindowStyle Hidden -PassThru
+          Write-Host "Started PR application with PID $($process.Id)"
+
+          $healthy = $false
+          for ($i = 0; $i -lt 30; $i++) {
+            Start-Sleep -Seconds 2
+            try {
+              $response = Invoke-WebRequest -Uri 'http://127.0.0.1:8081/' -UseBasicParsing -TimeoutSec 5
+              if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) {
+                $healthy = $true
+                break
+              }
+            } catch {}
+          }
+
+          if (-not $healthy) {
+            Write-Host 'PR application failed health check.'
+            if (Test-Path $log) { Get-Content $log -Tail 80 }
+            if (Test-Path $errorLog) { Get-Content $errorLog -Tail 80 }
+            exit 1
+          }
+
+          Write-Host 'PR application is healthy on port 8081.'
+          POWERSHELL
+
+          ssh -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" "powershell -NoProfile -ExecutionPolicy Bypass -Command -" < deploy-pr.ps1
+
+      - name: Show test URL
+        run: echo "PR test environment: http://$AZURE_HOST:8081"
+
+  cleanup:
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.AZURE_SSH_PRIVATE_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/dailyconversation_actions
+          chmod 600 ~/.ssh/dailyconversation_actions
+          ssh-keyscan -H "$AZURE_HOST" >> ~/.ssh/known_hosts
+
+      - name: Stop PR environment
+        run: |
+          ssh -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" "powershell -NoProfile -Command \"$pids = Get-NetTCPConnection -State Listen -LocalPort 8081 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique; if ($pids) { $pids | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } }\""
