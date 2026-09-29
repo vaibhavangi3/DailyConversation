@@ -4,10 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       deploy_branch:
-        description: 'Branch to build and deploy'
+        description: "Branch to build and deploy"
         required: true
         type: string
-
 
 permissions:
   contents: read
@@ -31,7 +30,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
           cache: maven
 
       - name: Build
@@ -50,37 +49,38 @@ jobs:
       - name: Prepare Azure test directory
         run: |
           set -e
-          ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST"             "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path '$PR_DIR' | Out-Null; New-Item -ItemType Directory -Force -Path '$PR_DIR/data' | Out-Null\""
+          ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" \
+            "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path '$PR_DIR' | Out-Null; New-Item -ItemType Directory -Force -Path '$PR_DIR/data' | Out-Null\""
 
       - name: Upload application
         shell: bash
         run: |
           set -euo pipefail
           JAR="target/daily-conversation-0.0.1-SNAPSHOT.jar"
-          REMOTE_JAR="C:\Users\azureUser\DailyConversation-pr\daily-conversation.jar"
           test -f "$JAR"
 
-          # Avoid SCP/SFTP path handling on Windows OpenSSH.
-          # Send raw binary bytes over SSH and write them directly on the VM.
-          python3 - "$JAR" "$REMOTE_JAR" <<'PY' |
+          # Stream the binary directly over the SSH connection.
+          # The Python process writes raw bytes to stdout; PowerShell writes
+          # those bytes directly to the destination file on Windows.
+          python3 - "$JAR" <<'PY' | ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" powershell -NoProfile -Command -
 import sys
-from pathlib import Path
-jar = Path(sys.argv[1])
-out = sys.stdout.buffer
-with jar.open("rb") as f:
+with open(sys.argv[1], "rb") as f:
     while True:
         chunk = f.read(1024 * 1024)
         if not chunk:
             break
-        out.write(chunk)
+        sys.stdout.buffer.write(chunk)
 PY
-          ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" \
-            "powershell -NoProfile -Command \"\$path='C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar'; \$input=[Console]::OpenStandardInput(); \$fs=[IO.File]::Open(\$path,[IO.FileMode]::Create,[IO.FileAccess]::Write); try { \$input.CopyTo(\$fs) } finally { \$fs.Dispose() }; Write-Host ('JAR size: ' + (Get-Item -LiteralPath \$path).Length + ' bytes')\""
+          ssh_status=$?
+          if [ "$ssh_status" -ne 0 ]; then
+            exit "$ssh_status"
+          fi
 
       - name: Verify uploaded JAR
         run: |
           set -e
-          ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST"             "powershell -NoProfile -Command \"$p='C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar'; if (-not (Test-Path -LiteralPath $p)) { throw 'JAR upload failed' }; Write-Host ('JAR size: ' + (Get-Item -LiteralPath $p).Length + ' bytes')\""
+          ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" \
+            "powershell -NoProfile -Command \"$p='C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar'; if (-not (Test-Path -LiteralPath $p)) { throw 'JAR upload failed' }; Write-Host ('JAR size: ' + (Get-Item -LiteralPath $p).Length + ' bytes')\""
 
       - name: Deploy and health check
         run: |
