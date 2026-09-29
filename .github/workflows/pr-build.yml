@@ -76,6 +76,19 @@ jobs:
           $env:PORT = '8081'
           $env:DB_PATH = $dbPath
 
+          # Explicitly inherit the Production Machine-level admin credentials.
+          $adminUsername = [Environment]::GetEnvironmentVariable('ADMIN_USERNAME', 'Machine')
+          $adminPassword = [Environment]::GetEnvironmentVariable('ADMIN_PASSWORD', 'Machine')
+          if ([string]::IsNullOrWhiteSpace($adminUsername)) {
+            $adminUsername = 'admin'
+          }
+          if ([string]::IsNullOrWhiteSpace($adminPassword)) {
+            throw 'ADMIN_PASSWORD is not configured as a Machine-level environment variable on the Azure VM.'
+          }
+
+          $env:ADMIN_USERNAME = $adminUsername
+          $env:ADMIN_PASSWORD = $adminPassword
+
           $process = Start-Process -FilePath 'java' -ArgumentList '-jar', $jar -WorkingDirectory $dir -RedirectStandardOutput $log -RedirectStandardError $errorLog -WindowStyle Hidden -PassThru
           Write-Host "Started PR app with PID $($process.Id)"
 
