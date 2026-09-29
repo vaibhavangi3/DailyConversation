@@ -44,7 +44,7 @@ jobs:
 
       - name: Upload application
         run: |
-          scp -i ~/.ssh/dailyconversation_actions target/daily-conversation-0.0.1-SNAPSHOT.jar "$AZURE_USER@$AZURE_HOST:C:/Users/azureUser/DailyConversation-pr/daily-conversation.jar"
+          scp -i ~/.ssh/dailyconversation_actions target/daily-conversation-0.0.1-SNAPSHOT.jar "$AZURE_USER@$AZURE_HOST:/C:/Users/azureUser/DailyConversation-pr/daily-conversation.jar"
 
       - name: Deploy and health check
         run: |
