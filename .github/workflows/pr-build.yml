@@ -1,25 +1,24 @@
-name: Azure Branch Test
+name: Azure Container Branch Test
 
 on:
   workflow_dispatch:
     inputs:
       deploy_branch:
-        description: 'Branch to build and deploy'
+        description: "Branch to build and push"
         required: true
         type: string
 
-
 permissions:
   contents: read
+  id-token: write
 
 jobs:
-  build-and-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
-
     env:
-      AZURE_HOST: 40.80.90.85
-      AZURE_USER: azureUser
-      PR_DIR: C:/Users/azureUser/DailyConversation-pr
+      ACR_NAME: dailyconversationacr123
+      ACR_LOGIN_SERVER: dailyconversationacr123-d4d3eghqfab6hhbd.azurecr.io
+      IMAGE_NAME: dailyconversation
 
     steps:
       - name: Checkout selected branch
@@ -31,110 +30,49 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
           cache: maven
 
-      - name: Build
+      - name: Build application
         run: mvn -B clean package -DskipTests
 
-      - name: Configure SSH
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.AZURE_SSH_PRIVATE_KEY }}
-        run: |
-          set -e
-          mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/dailyconversation_actions
-          chmod 600 ~/.ssh/dailyconversation_actions
-          ssh-keyscan -H "$AZURE_HOST" >> ~/.ssh/known_hosts
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Prepare Azure test directory
-        run: |
-          set -e
-          ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST"             "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path '$PR_DIR' | Out-Null; New-Item -ItemType Directory -Force -Path '$PR_DIR/data' | Out-Null\""
-
-      - name: Upload application
+      - name: Get ACR access token
+        id: acr-token
         shell: bash
         run: |
           set -euo pipefail
-          JAR="target/daily-conversation-0.0.1-SNAPSHOT.jar"
-          test -f "$JAR"
+          token=$(az acr login --name "$ACR_NAME" --expose-token --output tsv --query accessToken)
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
 
-          # SCP is intentionally not used. Windows OpenSSH was rejecting the
-          # destination path. Stream the binary over SSH and write it remotely.
-          base64 "$JAR" | tr -d '\n' |
-            ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST"             'powershell -NoProfile -Command "$b64 = [Console]::In.ReadToEnd(); [IO.File]::WriteAllBytes('"'"'C:\Users\azureUser\DailyConversation-pr\daily-conversation.jar'"'"',[Convert]::FromBase64String($b64))"'
+      - name: Log in to ACR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.ACR_LOGIN_SERVER }}
+          username: 00000000-0000-0000-0000-000000000000
+          password: ${{ steps.acr-token.outputs.token }}
 
-      - name: Verify uploaded JAR
+      - name: Build Docker image
         run: |
-          set -e
-          ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST"             "powershell -NoProfile -Command \"$p='C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar'; if (-not (Test-Path -LiteralPath $p)) { throw 'JAR upload failed' }; Write-Host ('JAR size: ' + (Get-Item -LiteralPath $p).Length + ' bytes')\""
+          docker build \
+            -t "$ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}" \
+            -t "$ACR_LOGIN_SERVER/$IMAGE_NAME:latest" \
+            .
 
-      - name: Deploy and health check
+      - name: Push Docker image
         run: |
-          set -e
-          cat > deploy.ps1 <<'POWERSHELL'
-          $ErrorActionPreference = 'Stop'
-          $dir = 'C:/Users/azureUser/DailyConversation-pr'
-          $jar = Join-Path $dir 'daily-conversation.jar'
-          $log = Join-Path $dir 'app.log'
-          $errorLog = Join-Path $dir 'app-error.log'
-          $dbDir = Join-Path $dir 'data'
-          $dbPath = Join-Path $dbDir 'daily-conversation.db'
+          docker push "$ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}"
+          docker push "$ACR_LOGIN_SERVER/$IMAGE_NAME:latest"
 
-          New-Item -ItemType Directory -Force -Path $dir | Out-Null
-          New-Item -ItemType Directory -Force -Path $dbDir | Out-Null
-
-          $pids = Get-NetTCPConnection -State Listen -LocalPort 8081 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
-          if ($pids) {
-            foreach ($pid in $pids) {
-              Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
-            }
-            Start-Sleep -Seconds 2
-          }
-
-          $env:PORT = '8081'
-          $env:DB_PATH = $dbPath
-
-          $adminUsername = [Environment]::GetEnvironmentVariable('ADMIN_USERNAME', 'Machine')
-          $adminPassword = [Environment]::GetEnvironmentVariable('ADMIN_PASSWORD', 'Machine')
-          if ([string]::IsNullOrWhiteSpace($adminUsername)) {
-            $adminUsername = 'admin'
-          }
-          if ([string]::IsNullOrWhiteSpace($adminPassword)) {
-            throw 'ADMIN_PASSWORD is not configured as a Machine-level environment variable on the Azure VM.'
-          }
-
-          $env:ADMIN_USERNAME = $adminUsername
-          $env:ADMIN_PASSWORD = $adminPassword
-
-          $process = Start-Process -FilePath 'java' -ArgumentList '-jar', $jar -WorkingDirectory $dir -RedirectStandardOutput $log -RedirectStandardError $errorLog -WindowStyle Hidden -PassThru
-          Write-Host "Started branch test app with PID $($process.Id)"
-
-          $healthy = $false
-          for ($i = 0; $i -lt 30; $i++) {
-            Start-Sleep -Seconds 2
-            try {
-              $response = Invoke-WebRequest -Uri 'http://127.0.0.1:8081/' -UseBasicParsing -TimeoutSec 5
-              if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) {
-                $healthy = $true
-                break
-              }
-            } catch {
-            }
-          }
-
-          if (-not $healthy) {
-            Write-Host 'Health check failed.'
-            if (Test-Path $log) { Get-Content $log -Tail 100 }
-            if (Test-Path $errorLog) { Get-Content $errorLog -Tail 100 }
-            exit 1
-          }
-
-          Write-Host 'Branch test application is healthy on port 8081.'
-          POWERSHELL
-
-          encoded=$(iconv -f UTF-8 -t UTF-16LE deploy.ps1 | base64 -w 0)
-          ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" "powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded"
-
-      - name: Test URL
-        run: echo "Branch test environment deployed at http://$AZURE_HOST:8081"
+      - name: Show image
+        run: |
+          echo "Pushed:"
+          echo "$ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}"
+          echo "$ACR_LOGIN_SERVER/$IMAGE_NAME:latest"
