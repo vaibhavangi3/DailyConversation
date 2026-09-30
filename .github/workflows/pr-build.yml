@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       deploy_branch:
-        description: "Branch to build and push"
+        description: "Branch to build and deploy"
         required: true
         type: string
 
@@ -13,29 +13,31 @@ permissions:
   id-token: write
 
 jobs:
-  build-and-push:
+  build-and-deploy:
     environment: azure
     runs-on: ubuntu-latest
     env:
       ACR_NAME: dailyconversationacr123
       ACR_LOGIN_SERVER: dailyconversationacr123-d4d3eghqfab6hhbd.azurecr.io
       IMAGE_NAME: dailyconversation
+      CONTAINER_APP_NAME: dailyconversation-test
+      RESOURCE_GROUP: dailyconversation-test
 
     steps:
       - name: Checkout selected branch
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.deploy_branch }}
+          fetch-depth: 1
 
-      - name: Set up Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-          cache: maven
-
-      - name: Build application
-        run: mvn -B clean package -DskipTests
+      - name: Set image tag from selected branch commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="$(git rev-parse HEAD)"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
+          echo "Selected branch: ${{ inputs.deploy_branch }}"
+          echo "Selected commit: $IMAGE_TAG"
 
       - name: Log in to Azure
         uses: azure/login@v2
@@ -49,7 +51,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          token=$(az acr login --name "$ACR_NAME" --expose-token --output tsv --query accessToken)
+          token="$(az acr login \
+            --name "$ACR_NAME" \
+            --expose-token \
+            --output tsv \
+            --query accessToken)"
           echo "::add-mask::$token"
           echo "token=$token" >> "$GITHUB_OUTPUT"
 
@@ -62,15 +68,32 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build             -t "$ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}"             -t "$ACR_LOGIN_SERVER/$IMAGE_NAME:latest"             .
+          set -euo pipefail
+          docker build \
+            -t "$ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG" \
+            .
 
       - name: Push Docker image
         run: |
-          docker push "$ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}"
-          docker push "$ACR_LOGIN_SERVER/$IMAGE_NAME:latest"
+          set -euo pipefail
+          docker push "$ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG"
 
-      - name: Show image
+      - name: Deploy selected image to Azure Container App
         run: |
-          echo "Pushed:"
-          echo "$ACR_LOGIN_SERVER/$IMAGE_NAME:${{ github.sha }}"
-          echo "$ACR_LOGIN_SERVER/$IMAGE_NAME:latest"
+          set -euo pipefail
+          az containerapp update \
+            --name "$CONTAINER_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --image "$ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG"
+
+      - name: Show deployment
+        run: |
+          set -euo pipefail
+          echo "Deployed branch: ${{ inputs.deploy_branch }}"
+          echo "Deployed commit: $IMAGE_TAG"
+          echo "Image: $ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG"
+          az containerapp show \
+            --name "$CONTAINER_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "{fqdn:properties.configuration.ingress.fqdn, revision:properties.latestRevisionName, provisioningState:properties.provisioningState}" \
+            -o table
