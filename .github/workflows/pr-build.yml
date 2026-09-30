@@ -57,26 +57,26 @@ jobs:
         run: |
           set -euo pipefail
           JAR="target/daily-conversation-0.0.1-SNAPSHOT.jar"
-          test -f "$JAR"
+          REMOTE_JAR='C:\Users\azureUser\DailyConversation-pr\daily-conversation.jar'
 
-          # Verify local JAR is valid
+          test -f "$JAR"
           local_size=$(stat -c%s "$JAR")
           echo "Local JAR size: $local_size bytes"
           test "$local_size" -gt 0
 
-          # Encode to base64 (text-safe), send to Azure over SSH, then decode there.
-          B64=$(base64 -w 0 < "$JAR")
-
-          ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" \
-            "powershell -NoProfile -Command \"\$b64 = @'
-${B64}
-'@
-\$bytes = [Convert]::FromBase64String(\$b64.Trim())
-[IO.File]::WriteAllBytes('C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar', \$bytes)
-\$size = (Get-Item 'C:\\Users\\azureUser\\DailyConversation-pr\\daily-conversation.jar').Length
-Write-Host \"JAR uploaded successfully: \$size bytes\"\"
-            "
-
+          # Stream base64 over SSH instead of embedding the complete JAR in
+          # the remote command. This avoids Windows OpenSSH command-size/path
+          # issues and prevents accidental 0-byte uploads.
+          base64 "$JAR" |
+            ssh -T -i ~/.ssh/dailyconversation_actions "$AZURE_USER@$AZURE_HOST" \
+              "powershell -NoProfile -ExecutionPolicy Bypass -Command \
+                \"\$b64 = [Console]::In.ReadToEnd(); \
+                if ([string]::IsNullOrWhiteSpace(\$b64)) { throw 'No JAR data received over SSH' }; \
+                \$bytes = [Convert]::FromBase64String(\$b64); \
+                [IO.File]::WriteAllBytes('$REMOTE_JAR', \$bytes); \
+                \$size = (Get-Item -LiteralPath '$REMOTE_JAR').Length; \
+                if (\$size -le 0) { throw 'Uploaded JAR is 0 bytes' }; \
+                Write-Host ('JAR uploaded successfully: ' + \$size + ' bytes')\""
       - name: Verify uploaded JAR
         shell: bash
         run: |
