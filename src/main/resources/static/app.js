@@ -1,4 +1,4 @@
-const state = { conversations: [], filter: 'all' };
+const state = { conversations: [], filter: 'all', deckIndex: 0, deckSessions: [] };
 const $ = (selector) => document.querySelector(selector);
 
 async function loadDashboard() {
@@ -9,7 +9,7 @@ async function loadDashboard() {
   state.conversations = conversations;
   renderStats(stats);
   renderSessions();
-  renderSessionShuffler();
+  renderSessionDeck();
   renderTopics(stats.topics);
   renderDailyLearning(stats.dailyLearning || []);
   loadLeaderboard();
@@ -27,23 +27,60 @@ function renderStats(stats) {
   $('#top-topic').textContent = stats.topTopic;
 }
 
-function renderSessionShuffler() {
-  const target = $('#session-shuffle-list');
-  const sessions = [...state.conversations].sort((a, b) => new Date(b.importedAt) - new Date(a.importedAt)).slice(0, 5);
+function renderSessionDeck() {
+  const target = $('#session-deck');
+  const position = $('#deck-position');
+  const sessions = [...state.conversations]
+    .sort((a, b) => new Date(b.importedAt) - new Date(a.importedAt))
+    .slice(0, 5);
+
+  state.deckSessions = sessions;
   if (!sessions.length) {
+    state.deckIndex = 0;
     target.innerHTML = '<div class="empty"><span>✦</span><p>No sessions yet</p><small>Your latest five sessions will appear here.</small></div>';
+    position.textContent = '0 / 0';
+    $('#deck-prev').disabled = true;
+    $('#deck-next').disabled = true;
     return;
   }
-  target.innerHTML = sessions.map((item, index) => `<article class="shuffle-card" data-id="${escapeAttribute(item.id)}" style="--card-index:${index}">
-    <span class="shuffle-number">${String(index + 1).padStart(2, '0')}</span>
-    <div class="shuffle-card-body">
-      <span class="provider">${escapeHtml(providerLabel(item.provider))}</span>
-      <h3>${escapeHtml(item.title)}</h3>
-      <p>${escapeHtml(item.topic)} · ${item.estimatedMinutes} min</p>
-    </div>
-    <span class="shuffle-arrow">→</span>
-  </article>`).join('');
-  target.querySelectorAll('.shuffle-card').forEach((card) => card.addEventListener('click', () => openDetail(card.dataset.id)));
+
+  state.deckIndex = Math.min(state.deckIndex, sessions.length - 1);
+  position.textContent = `${state.deckIndex + 1} / ${sessions.length}`;
+  $('#deck-prev').disabled = sessions.length < 2;
+  $('#deck-next').disabled = sessions.length < 2;
+
+  target.innerHTML = sessions.map((item, index) => {
+    const offset = index - state.deckIndex;
+    const distance = Math.min(Math.abs(offset), 3);
+    const direction = offset < 0 ? -1 : 1;
+    const hidden = distance > 2;
+    return `<article class="deck-card ${index === state.deckIndex ? 'is-current' : ''} ${hidden ? 'is-hidden' : ''}" data-id="${escapeAttribute(item.id)}" style="--deck-offset:${offset}; --deck-distance:${distance}; --deck-direction:${direction}; --deck-z:${20 - distance}">
+
+      <div class="deck-card-top">
+        <span class="deck-number">${String(index + 1).padStart(2, '0')}</span>
+        <span class="provider">${escapeHtml(providerLabel(item.provider))}</span>
+      </div>
+      <div class="deck-card-body">
+        <h3>${escapeHtml(item.title)}</h3>
+        <p>${escapeHtml(item.summary)}</p>
+      </div>
+      <div class="deck-card-footer">
+        <span>${escapeHtml(item.topic)}</span>
+        <span>${item.estimatedMinutes} min · ${formatDate(item.importedAt)}</span>
+      </div>
+    </article>`;
+  }).join('');
+
+  target.querySelectorAll('.deck-card').forEach((card) => {
+    card.addEventListener('click', () => openDetail(card.dataset.id));
+  });
+}
+
+function moveDeck(direction) {
+  if (!state.deckSessions.length) return;
+  const count = state.deckSessions.length;
+  state.deckIndex = (state.deckIndex + direction + count) % count;
+  renderSessionDeck();
 }
 
 function renderSessions() {
