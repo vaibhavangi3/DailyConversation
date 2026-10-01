@@ -3,20 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Daily Conversation — Learning log</title>
+  <title>AI Chat Storage — Learning log</title>
   <meta name="description" content="A private learning log built from your shared ChatGPT, Gemini and Claude conversations." />
   <meta name="color-scheme" content="dark" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/styles.css?v=20260917b" />
+  <link rel="stylesheet" href="/styles.css?v=20261001c" />
 </head>
 <body>
   <div class="shell">
     <aside class="sidebar">
       <div class="brand">
-        <span class="brand-mark">DC</span>
-        <span class="brand-name">daily<br /><b>conversation</b></span>
+        <span class="brand-mark">AC</span>
+        <span class="brand-name">AI Chat<br /><b>Storage</b></span>
       </div>
       <p class="eyebrow">Your learning log</p>
       <nav>
@@ -40,14 +40,12 @@
           <p class="eyebrow">Overview</p>
           <h1>Your learning, <em>remembered.</em></h1>
         </div>
-        <a class="topbar-link" href="#import-card">Add a session <span aria-hidden="true">→</span></a>
       </header>
 
       <section class="import-card" id="import-card">
         <div class="import-copy">
-          <p class="eyebrow">Add a new session</p>
           <h2>What did you explore today?</h2>
-          <p class="import-lede">Paste a public ChatGPT, Gemini or Claude share link. We'll extract the conversation and map your learning.</p>
+          <p class="import-lede">Paste any public AI chat link. Play and compete with your data.</p>
         </div>
         <form id="import-form">
           <label for="url">Shared conversation link</label>
@@ -55,7 +53,7 @@
             <input id="url" type="url" required placeholder="https://chatgpt.com/share/…" autocomplete="off" spellcheck="false" />
             <button type="submit" id="import-button">Import session <span aria-hidden="true">→</span></button>
           </div>
-          <p class="form-note" id="form-note">Your shared link must be public. The original transcript stays private in your local database.</p>
+          <p class="form-note" id="form-note"></p>
         </form>
       </section>
 
@@ -141,7 +139,7 @@
         </div>
       </section>
 
-      <footer class="page-footer">Daily Conversation · your private learning journal</footer>
+      <footer class="page-footer">AI Chat Storage · branch deployment test</footer>
     </main>
   </div>
 
