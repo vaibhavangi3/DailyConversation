@@ -75,15 +75,21 @@
         </article>
       </section>
 
-      <section class="session-shuffler" id="sessions">
+      <section class="session-deck" id="sessions">
         <div class="section-heading">
           <div>
             <p class="eyebrow">Sessions</p>
-            <h2>Shuffle your recent learning</h2>
+            <h2>Your last five conversations</h2>
           </div>
-          <button type="button" class="btn-ghost" id="shuffle-sessions">Shuffle ↻</button>
+          <div class="deck-controls">
+            <button type="button" class="btn-ghost" id="deck-prev" aria-label="Previous session">←</button>
+            <span id="deck-position" class="deck-position">0 / 0</span>
+            <button type="button" class="btn-ghost" id="deck-next" aria-label="Next session">→</button>
+          </div>
         </div>
-        <div id="session-shuffle-list" class="session-shuffle-list"></div>
+        <div class="session-deck-stage">
+          <div id="session-deck" class="session-deck-stack"></div>
+        </div>
       </section>
 
       <section class="content-grid">
