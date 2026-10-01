@@ -1,4 +1,4 @@
-const state = { conversations: [], filter: 'all', deckIndex: 0, deckSessions: [] };
+const state = { conversations: [], deckIndex: 0, deckSessions: [] };
 const $ = (selector) => document.querySelector(selector);
 
 async function loadDashboard() {
@@ -8,7 +8,6 @@ async function loadDashboard() {
   ]);
   state.conversations = conversations;
   renderStats(stats);
-  renderSessions();
   renderSessionDeck();
   renderTopics(stats.topics);
   renderDailyLearning(stats.dailyLearning || []);
