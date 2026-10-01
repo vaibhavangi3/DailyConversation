@@ -49,15 +49,6 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Configure App Service startup command
-        shell: bash
-        run: |
-          set -euo pipefail
-          az webapp config set \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "$WEB_APP_NAME" \
-            --startup-file "java -jar /home/site/wwwroot/$JAR_NAME"
-
       - name: Deploy JAR to Azure App Service
         shell: bash
         run: |
