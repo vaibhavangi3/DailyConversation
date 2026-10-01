@@ -83,6 +83,28 @@ function moveDeck(direction) {
   renderSessionDeck();
 }
 
+function setupDeckSwipe() {
+  const stage = $('#session-deck');
+  let startX = 0;
+  let startY = 0;
+
+  stage.addEventListener('touchstart', (event) => {
+    if (!event.touches.length) return;
+    startX = event.touches[0].clientX;
+    startY = event.touches[0].clientY;
+  }, { passive: true });
+
+  stage.addEventListener('touchend', (event) => {
+    if (!event.changedTouches.length) return;
+    const deltaX = event.changedTouches[0].clientX - startX;
+    const deltaY = event.changedTouches[0].clientY - startY;
+    if (Math.abs(deltaX) < 50 || Math.abs(deltaX) < Math.abs(deltaY)) return;
+
+    // Swipe right = next, swipe left = previous.
+    moveDeck(deltaX > 0 ? 1 : -1);
+  }, { passive: true });
+}
+
 function renderSessions() {
   const list = $('#session-list');
   const filtered = state.conversations.filter((item) => state.filter === 'all' || item.provider === state.filter);
@@ -251,6 +273,9 @@ function formatDay(value) { return new Intl.DateTimeFormat(undefined, { weekday:
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
 function escapeAttribute(value) { return escapeHtml(value).replace(/`/g, '&#96;'); }
 
+$('#deck-prev').addEventListener('click', () => moveDeck(-1));
+$('#deck-next').addEventListener('click', () => moveDeck(1));
+setupDeckSwipe();
 $('#import-form').addEventListener('submit', importConversation);
 $('#close-detail').addEventListener('click', () => $('#detail-dialog').close());
 document.querySelectorAll('.filter').forEach((button) => button.addEventListener('click', () => {
