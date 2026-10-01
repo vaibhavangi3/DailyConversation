@@ -419,3 +419,63 @@ main { padding: 34px 46px 60px; display: flex; flex-direction: column; gap: 26px
   *, *::before, *::after { animation: none !important; transition: none !important; }
   html { scroll-behavior: auto; }
 }
+
+
+.session-shuffler {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.session-shuffle-list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+.shuffle-card {
+  min-height: 190px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: transform .2s ease, border-color .2s ease;
+}
+.shuffle-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent);
+}
+.shuffle-number {
+  font: 700 12px/1 var(--mono);
+  color: var(--muted);
+}
+.shuffle-card-body h3 {
+  margin: 9px 0 7px;
+  font-size: 18px;
+  line-height: 1.2;
+}
+.shuffle-card-body p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.shuffle-arrow {
+  align-self: flex-end;
+  font-size: 20px;
+}
+.shuffle-animation .shuffle-card {
+  animation: shuffleCards .45s ease both;
+  animation-delay: calc(var(--card-index) * 45ms);
+}
+@keyframes shuffleCards {
+  0% { opacity: .45; transform: translateY(12px) rotate(-1deg); }
+  100% { opacity: 1; transform: translateY(0) rotate(0); }
+}
+@media (max-width: 900px) {
+  .session-shuffle-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .session-shuffle-list { grid-template-columns: minmax(0, 1fr); }
+}
