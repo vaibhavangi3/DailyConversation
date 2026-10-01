@@ -387,6 +387,21 @@ main { padding: 34px 46px 60px; display: flex; flex-direction: column; gap: 26px
 }
 
 @media (max-width: 620px) {
+  main { padding: 24px 0 48px !important; max-width: none; width: 100%; }
+  .topbar, .page-footer { margin-left: 18px; margin-right: 18px; }
+  .import-card {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 24px 24px !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-radius: 0 !important;
+  }
+  .stats-grid, .content-grid, .leaderboard-section {
+    width: 100%;
+    padding-left: 18px;
+    padding-right: 18px;
+  }
   .stats-grid { grid-template-columns: minmax(0, 1fr); }
   .input-row { flex-direction: column; }
   #import-button { width: 100%; }
