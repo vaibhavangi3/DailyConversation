@@ -375,8 +375,13 @@ main { padding: 34px 46px 60px; display: flex; flex-direction: column; gap: 26px
   .sidebar .eyebrow, .sidebar-note { display: none; }
   .sidebar nav { flex-direction: row; margin: 0; margin-left: auto; }
   .sidebar-footer { padding-top: 0; border-top: none; }
-  main { padding: 24px 20px 48px; }
-  .import-card { grid-template-columns: minmax(0, 1fr); gap: 22px; padding: 24px; }
+  main { padding: 24px 0 48px; }
+  .topbar, .page-footer { margin-left: 34px; margin-right: 34px; }
+  .import-card, .stats-grid, .content-grid, .leaderboard-section { width: 100%; }
+  .import-card { grid-template-columns: minmax(0, 1fr); gap: 22px; padding: 24px 34px; border-left: none; border-right: none; border-radius: 0; }
+  .stats-grid { padding: 0 34px; }
+  .content-grid { padding: 0 34px; }
+  .leaderboard-section { padding: 0 34px; }
   .insight-row, .detail-columns { grid-template-columns: minmax(0, 1fr); }
   #detail-dialog { padding: 26px 22px; }
 }
