@@ -251,12 +251,6 @@ function formatDay(value) { return new Intl.DateTimeFormat(undefined, { weekday:
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
 function escapeAttribute(value) { return escapeHtml(value).replace(/`/g, '&#96;'); }
 
-$('#shuffle-sessions').addEventListener('click', () => {
-  const target = $('#session-shuffle-list');
-  target.classList.remove('shuffle-animation');
-  void target.offsetWidth;
-  target.classList.add('shuffle-animation');
-});
 $('#import-form').addEventListener('submit', importConversation);
 $('#close-detail').addEventListener('click', () => $('#detail-dialog').close());
 document.querySelectorAll('.filter').forEach((button) => button.addEventListener('click', () => {
