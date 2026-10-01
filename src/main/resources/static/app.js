@@ -9,6 +9,7 @@ async function loadDashboard() {
   state.conversations = conversations;
   renderStats(stats);
   renderSessions();
+  renderSessionShuffler();
   renderTopics(stats.topics);
   renderDailyLearning(stats.dailyLearning || []);
   loadLeaderboard();
@@ -24,6 +25,25 @@ function renderStats(stats) {
   $('#session-count').textContent = stats.conversationCount;
   $('#learning-time').innerHTML = `${Math.floor(stats.learningMinutes / 60)}<span>h</span> ${String(stats.learningMinutes % 60).padStart(2, '0')}<span>m</span>`;
   $('#top-topic').textContent = stats.topTopic;
+}
+
+function renderSessionShuffler() {
+  const target = $('#session-shuffle-list');
+  const sessions = [...state.conversations].sort((a, b) => new Date(b.importedAt) - new Date(a.importedAt)).slice(0, 5);
+  if (!sessions.length) {
+    target.innerHTML = '<div class="empty"><span>✦</span><p>No sessions yet</p><small>Your latest five sessions will appear here.</small></div>';
+    return;
+  }
+  target.innerHTML = sessions.map((item, index) => `<article class="shuffle-card" data-id="${escapeAttribute(item.id)}" style="--card-index:${index}">
+    <span class="shuffle-number">${String(index + 1).padStart(2, '0')}</span>
+    <div class="shuffle-card-body">
+      <span class="provider">${escapeHtml(providerLabel(item.provider))}</span>
+      <h3>${escapeHtml(item.title)}</h3>
+      <p>${escapeHtml(item.topic)} · ${item.estimatedMinutes} min</p>
+    </div>
+    <span class="shuffle-arrow">→</span>
+  </article>`).join('');
+  target.querySelectorAll('.shuffle-card').forEach((card) => card.addEventListener('click', () => openDetail(card.dataset.id)));
 }
 
 function renderSessions() {
@@ -194,6 +214,12 @@ function formatDay(value) { return new Intl.DateTimeFormat(undefined, { weekday:
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char])); }
 function escapeAttribute(value) { return escapeHtml(value).replace(/`/g, '&#96;'); }
 
+$('#shuffle-sessions').addEventListener('click', () => {
+  const target = $('#session-shuffle-list');
+  target.classList.remove('shuffle-animation');
+  void target.offsetWidth;
+  target.classList.add('shuffle-animation');
+});
 $('#import-form').addEventListener('submit', importConversation);
 $('#close-detail').addEventListener('click', () => $('#detail-dialog').close());
 document.querySelectorAll('.filter').forEach((button) => button.addEventListener('click', () => {
