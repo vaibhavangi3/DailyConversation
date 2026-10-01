@@ -1,4 +1,4 @@
-name: Azure Container Branch Test
+name: Azure App Service Branch Test
 
 on:
   workflow_dispatch:
@@ -17,11 +17,9 @@ jobs:
     environment: azure
     runs-on: ubuntu-latest
     env:
-      ACR_NAME: dailyconversationacr123
-      ACR_LOGIN_SERVER: dailyconversationacr123-d4d3eghqfab6hhbd.azurecr.io
-      IMAGE_NAME: dailyconversation
-      CONTAINER_APP_NAME: dailyconversation-test
+      WEB_APP_NAME: dailyconversation-test
       RESOURCE_GROUP: dailyconversation-test
+      JAR_NAME: daily-conversation-0.0.1-SNAPSHOT.jar
 
     steps:
       - name: Checkout selected branch
@@ -30,14 +28,19 @@ jobs:
           ref: ${{ inputs.deploy_branch }}
           fetch-depth: 1
 
-      - name: Set image tag from selected branch commit
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Build application
         shell: bash
         run: |
           set -euo pipefail
-          IMAGE_TAG=$(git rev-parse HEAD)
-          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
-          echo "Selected branch: ${{ inputs.deploy_branch }}"
-          echo "Selected commit: $IMAGE_TAG"
+          mvn -B clean package -DskipTests
+          test -f "target/$JAR_NAME"
 
       - name: Log in to Azure
         uses: azure/login@v2
@@ -46,60 +49,31 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Get ACR access token
-        id: acr-token
+      - name: Configure App Service startup command
         shell: bash
         run: |
           set -euo pipefail
-          token=$(az acr login --name "$ACR_NAME" --expose-token --output tsv --query accessToken)
-          echo "::add-mask::$token"
-          echo "token=$token" >> "$GITHUB_OUTPUT"
+          az webapp config set \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$WEB_APP_NAME" \
+            --startup-file "java -jar /home/site/wwwroot/$JAR_NAME"
 
-      - name: Log in to ACR
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ env.ACR_LOGIN_SERVER }}
-          username: 00000000-0000-0000-0000-000000000000
-          password: ${{ steps.acr-token.outputs.token }}
-
-      - name: Build Docker image
-        run: |
-          set -euo pipefail
-          docker build -t "$ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG" .
-
-      - name: Push Docker image
-        run: |
-          set -euo pipefail
-          docker push "$ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG"
-
-      - name: Deploy selected image to Azure Container App
+      - name: Deploy JAR to Azure App Service
         shell: bash
         run: |
           set -euo pipefail
-
-          API_URL="https://management.azure.com/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.App/containerApps/$CONTAINER_APP_NAME?api-version=2025-01-01"
-
-          az rest \
-            --method GET \
-            --url "$API_URL" \
-            -o json > containerapp.json
-
-          jq --arg image "$ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG" \
-            '.properties.template.containers[0].image = $image' \
-            containerapp.json > containerapp-updated.json
-
-          az rest \
-            --method PUT \
-            --url "$API_URL" \
-            --headers "Content-Type=application/json" \
-            --body @containerapp-updated.json
+          az webapp deploy \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$WEB_APP_NAME" \
+            --src-path "target/$JAR_NAME" \
+            --type jar
 
       - name: Show deployment
         shell: bash
         run: |
           set -euo pipefail
-          az rest \
-            --method GET \
-            --url "https://management.azure.com/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.App/containerApps/$CONTAINER_APP_NAME?api-version=2025-01-01" \
-            --query "{fqdn:properties.configuration.ingress.fqdn,latestRevisionName:properties.latestRevisionName,provisioningState:properties.provisioningState}" \
+          az webapp show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$WEB_APP_NAME" \
+            --query "{host:defaultHostName,state:state,httpsOnly:httpsOnly}" \
             -o table
