@@ -37,7 +37,8 @@ public class ConversationService {
                 TranscriptMetrics.estimatedTokens(extracted.transcript(), true), TranscriptMetrics.estimatedTokens(extracted.transcript(), false),
                 analysis.topic(), analysis.studyMethod(), analysis.difficulty(),
                 analysis.estimatedMinutes(), now, now, analysisResult.status(), analysis.keyLearnings(), analysis.concepts(),
-                analysis.nextSteps(), extracted.transcript());
+                analysis.nextSteps(), analysis.missingContext(), analysis.frictionPoints(), analysis.userCorrections(),
+                analysis.clarificationPoints(), analysis.betterFirstPrompt(), extracted.transcript());
         repository.save(conversation);
         return repository.findById(conversation.id()).orElse(conversation);
     }
@@ -55,7 +56,8 @@ public class ConversationService {
                 TranscriptMetrics.estimatedTokens(existing.transcript(), true), TranscriptMetrics.estimatedTokens(existing.transcript(), false), analysis.topic(),
                 analysis.studyMethod(), analysis.difficulty(), analysis.estimatedMinutes(),
                 existing.importedAt(), Instant.now(), result.status(),
-                analysis.keyLearnings(), analysis.concepts(), analysis.nextSteps(), existing.transcript());
+                analysis.keyLearnings(), analysis.concepts(), analysis.nextSteps(), analysis.missingContext(),
+                analysis.frictionPoints(), analysis.userCorrections(), analysis.clarificationPoints(), analysis.betterFirstPrompt(), existing.transcript());
         repository.save(updated);
         return repository.findById(id).orElse(updated);
     }
