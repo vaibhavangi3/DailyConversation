@@ -14,7 +14,12 @@ public record ConversationAnalysis(
         String studyMethod,
         int estimatedMinutes,
         String difficulty,
-        List<String> nextSteps) {
+        List<String> nextSteps,
+        List<String> missingContext,
+        List<String> frictionPoints,
+        List<String> userCorrections,
+        List<String> clarificationPoints,
+        String betterFirstPrompt) {
     public static ConversationAnalysis fallback(String transcript, String provider) {
         return fallback(transcript, provider, false);
     }
@@ -28,18 +33,11 @@ public record ConversationAnalysis(
         String summary = noApiKey
                 ? "Imported from " + provider + ". Add a Google AI key to generate a richer learning summary."
                 : "Imported from " + provider + ". AI analysis unavailable — re-analyse to try again.";
-        return new ConversationAnalysis(
-                title,
-                "Uncategorised",
-                summary,
-                "The imported conversation is available for review, but a richer context analysis could not be generated.",
-                List.of("learning", "conversation"),
-                Math.min(100, Math.max(0, Math.round(Math.min(100, words / 8f)))),
-                List.of("Review the imported conversation and capture the main idea."),
-                List.of("Imported conversation"),
-                "Guided conversation",
-                minutes,
-                "Medium",
-                List.of("Write one question you can now answer without assistance."));
+        return new ConversationAnalysis(title,"Uncategorised",summary,
+                "The imported conversation is available for review, but a richer optimization analysis could not be generated.",
+                List.of("learning","conversation"),Math.min(100,Math.max(0,Math.round(Math.min(100,words/8f)))),
+                List.of("Review the imported conversation and capture the main idea."),List.of("Imported conversation"),
+                "Guided conversation",minutes,"Medium",List.of("Write one question you can now answer without assistance."),
+                List.of(),List.of(),List.of(),List.of(),"");
     }
 }
