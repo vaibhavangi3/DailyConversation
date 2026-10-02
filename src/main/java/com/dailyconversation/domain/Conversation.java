@@ -24,4 +24,9 @@ public record Conversation(
         List<String> keyLearnings,
         List<String> concepts,
         List<String> nextSteps,
+        List<String> missingContext,
+        List<String> frictionPoints,
+        List<String> userCorrections,
+        List<String> clarificationPoints,
+        String betterFirstPrompt,
         String transcript) { }
