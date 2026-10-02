@@ -84,7 +84,10 @@ public class ConversationRepository {
                 rs.getString("difficulty"), rs.getInt("estimated_minutes"), Instant.parse(rs.getString("imported_at")),
                 rs.getString("analyzed_at") == null ? null : Instant.parse(rs.getString("analyzed_at")),
                 rs.getString("analysis_status"), readList(rs.getString("key_learnings_json")),
-                readList(rs.getString("concepts_json")), readList(rs.getString("next_steps_json")), rs.getString("transcript"));
+                readList(rs.getString("concepts_json")), readList(rs.getString("next_steps_json")),
+                readList(rs.getString("missing_context_json")), readList(rs.getString("friction_points_json")),
+                readList(rs.getString("user_corrections_json")), readList(rs.getString("clarification_points_json")),
+                rs.getString("better_first_prompt"), rs.getString("transcript"));
     }
 
     private void ensureAnalysisColumns() {
