@@ -30,7 +30,7 @@ public class ConversationRepository {
         jdbc.update("""
                 INSERT INTO conversations (id, provider, source_url, title, summary, context, keywords_json, effort_score, input_tokens, output_tokens, topic, study_method, difficulty,
                 estimated_minutes, imported_at, analyzed_at, analysis_status, key_learnings_json, concepts_json,
-                next_steps_json, transcript) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                next_steps_json, missing_context_json, friction_points_json, user_corrections_json, clarification_points_json, better_first_prompt, transcript) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(source_url) DO UPDATE SET title=excluded.title, summary=excluded.summary, context=excluded.context,
                 keywords_json=excluded.keywords_json, effort_score=excluded.effort_score, input_tokens=excluded.input_tokens, output_tokens=excluded.output_tokens, topic=excluded.topic,
                 study_method=excluded.study_method, difficulty=excluded.difficulty, estimated_minutes=excluded.estimated_minutes,
