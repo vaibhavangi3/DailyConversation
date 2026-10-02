@@ -41,9 +41,9 @@ public class GoogleAiAnalyzer {
             return new AnalysisResult(ConversationAnalysis.fallback(transcript, provider, true), "FALLBACK_NO_API_KEY");
         }
         String prompt = """
-                You are a learning journal assistant. Analyze this AI chat transcript and return ONLY valid JSON.
-                Schema: {"title":"string","topic":"string","summary":"string","context":"string","keywords":["string"],"effortScore":number,"keyLearnings":["string"],"concepts":["string"],"studyMethod":"string","estimatedMinutes":number,"difficulty":"Beginner|Intermediate|Advanced","nextSteps":["string"]}
-                The context must be a clear summary of no more than 100 words. Return 4 to 8 concise keywords.
+                You are a conversation optimization analyst. Analyze this AI chat transcript and return ONLY valid JSON.
+                Schema: {"title":"string","topic":"string","summary":"string","context":"string","keywords":["string"],"effortScore":number,"keyLearnings":["string"],"concepts":["string"],"studyMethod":"string","estimatedMinutes":number,"difficulty":"Beginner|Intermediate|Advanced","nextSteps":["string"],"missingContext":["string"],"frictionPoints":["string"],"userCorrections":["string"],"clarificationPoints":["string"],"betterFirstPrompt":"string"}
+                The context must be a clear summary of no more than 100 words. Return 4 to 8 concise keywords. Identify the user's goal, compare the earliest meaningful request with requirements revealed later, detect genuine corrections/clarifications and avoidable back-and-forth, and write a better first prompt using only details actually revealed later. Never invent requirements. Do not confuse normal conversational refinement with avoidable friction.
                 Score effortScore from 0 to 100 using only observable user effort: depth of questions, meaningful follow-ups, attempts, corrections, reflection, and application. Do not infer intelligence, motivation, identity, or worth. If evidence is limited, use a middle score and say so in context.
                 Infer estimatedMinutes from the depth and length of the exchange. Keep other arrays concise (3 to 6 items).
                 Do not include markdown fences or extra keys. Provider: %s
@@ -99,7 +99,7 @@ public class GoogleAiAnalyzer {
         if (analysis.effortScore() > 0) {
             return new ConversationAnalysis(analysis.title(), analysis.topic(), analysis.summary(), analysis.context(),
                     analysis.keywords(), Math.min(100, analysis.effortScore()), analysis.keyLearnings(), analysis.concepts(),
-                    analysis.studyMethod(), analysis.estimatedMinutes(), analysis.difficulty(), analysis.nextSteps());
+                    analysis.studyMethod(), analysis.estimatedMinutes(), analysis.difficulty(), analysis.nextSteps(), safe(analysis.missingContext()), safe(analysis.frictionPoints()), safe(analysis.userCorrections()), safe(analysis.clarificationPoints()), analysis.betterFirstPrompt() == null ? "" : analysis.betterFirstPrompt());
         }
         int userTurns = 0;
         int userWords = 0;
@@ -114,6 +114,8 @@ public class GoogleAiAnalyzer {
                 analysis.keywords(), score, analysis.keyLearnings(), analysis.concepts(), analysis.studyMethod(),
                 analysis.estimatedMinutes(), analysis.difficulty(), analysis.nextSteps());
     }
+
+    private List<String> safe(List<String> value) { return value == null ? List.of() : value; }
 
     private record Request(List<Content> contents, GenerationConfig generationConfig) { }
     private record Content(List<Part> parts) { }
