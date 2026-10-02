@@ -55,6 +55,7 @@ public class ConversationController {
                 conversation.topic(), conversation.studyMethod(),
                 conversation.difficulty(), conversation.estimatedMinutes(), conversation.importedAt(), conversation.analyzedAt(),
                 conversation.analysisStatus(), conversation.keyLearnings(), conversation.concepts(), conversation.nextSteps(),
-                conversation.transcript());
+                conversation.missingContext(), conversation.frictionPoints(), conversation.userCorrections(), conversation.clarificationPoints(),
+                conversation.betterFirstPrompt(), conversation.transcript());
     }
 }
