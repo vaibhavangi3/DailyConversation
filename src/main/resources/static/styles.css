@@ -596,3 +596,16 @@ main { padding: 34px 46px 60px; display: flex; flex-direction: column; gap: 26px
   *, *::before, *::after { animation: none !important; transition: none !important; }
   html { scroll-behavior: auto; }
 }
+
+/* ---------- Optimize how you chat prototype ---------- */
+.optimize-card { grid-template-columns: minmax(0, 0.78fr) minmax(0, 0.92fr) minmax(250px, 0.7fr); align-items: stretch; }
+.optimize-card .import-copy { align-self: center; }
+.optimization-preview { align-self: stretch; padding: 17px; border: 1px solid var(--line); border-radius: 13px; background: rgba(0,0,0,.18); }
+.optimization-preview-head { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:14px; }
+.preview-badge { font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--teal); }
+.optimization-preview-grid { display:grid; gap:10px; }
+.optimization-preview-grid > div { padding:11px 12px; border:1px solid var(--line); border-radius:10px; background:rgba(255,255,255,.02); }
+.optimization-preview-grid b { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.11em; color:var(--accent); margin-bottom:4px; }
+.optimization-preview-grid span { display:block; font-size:12px; color:var(--bone-dim); line-height:1.45; }
+@media (max-width:1180px) { .optimize-card { grid-template-columns:minmax(0,1fr) minmax(0,1fr); } .optimization-preview { grid-column:1/-1; } }
+@media (max-width:900px) { .optimize-card { grid-template-columns:minmax(0,1fr); } .optimization-preview { grid-column:auto; } }
