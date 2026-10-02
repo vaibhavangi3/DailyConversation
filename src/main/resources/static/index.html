@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Chat Storage — Learning log</title>
-  <meta name="description" content="A private learning log built from your shared ChatGPT, Gemini and Claude conversations." />
+  <title>Optimize How You Chat — Learning log</title>
+  <meta name="description" content="Analyze your AI conversations and learn what context you could provide earlier for clearer, more efficient prompts." />
   <meta name="color-scheme" content="dark" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -16,9 +16,9 @@
     <aside class="sidebar">
       <div class="brand">
         <span class="brand-mark">AC</span>
-        <span class="brand-name">AI Chat<br /><b>Storage</b></span>
+        <span class="brand-name">Optimize<br /><b>Your Chats</b></span>
       </div>
-      <p class="eyebrow">Your learning log</p>
+      <p class="eyebrow">Conversation coach</p>
       <nav>
         <a class="active" href="#overview"><span class="nav-dot"></span>Overview</a>
         <a href="#sessions"><span class="nav-dot"></span>Sessions</a>
@@ -38,23 +38,35 @@
       <header class="topbar">
         <div>
           <p class="eyebrow">Overview</p>
-          <h1>Your learning, <em>remembered.</em></h1>
+          <h1>Chat with AI, <em>better.</em></h1>
         </div>
       </header>
 
-      <section class="import-card" id="import-card">
+      <section class="import-card optimize-card" id="import-card">
         <div class="import-copy">
-          <h2>What did you explore today?</h2>
-          <p class="import-lede">Paste any public AI chat link. Play and compete with your data.</p>
+          <p class="eyebrow">Optimize how you chat</p>
+          <h2>See what you could have told AI sooner.</h2>
+          <p class="import-lede">Bring in one conversation. We'll trace the back-and-forth, spot missing context, and show how to make your next prompt more precise.</p>
         </div>
         <form id="import-form">
-          <label for="url">Shared conversation link</label>
+          <label for="url">Chat conversation link</label>
           <div class="input-row">
             <input id="url" type="url" required placeholder="https://chatgpt.com/share/…" autocomplete="off" spellcheck="false" />
-            <button type="submit" id="import-button">Import session <span aria-hidden="true">→</span></button>
+            <button type="submit" id="import-button">Analyze conversation <span aria-hidden="true">→</span></button>
           </div>
           <p class="form-note" id="form-note"></p>
         </form>
+        <div class="optimization-preview">
+          <div class="optimization-preview-head">
+            <span class="insight-label">What you'll get</span>
+            <span class="preview-badge">Conversation debugger</span>
+          </div>
+          <div class="optimization-preview-grid">
+            <div><b>Missing context</b><span>“I’m using Azure Blob Storage.”</span></div>
+            <div><b>Extra iteration</b><span>2 follow-ups could have been avoided.</span></div>
+            <div><b>Better prompt</b><span>We rewrite the first prompt with the missing constraints.</span></div>
+          </div>
+        </div>
       </section>
 
       <section class="stats-grid" id="overview">
@@ -119,7 +131,7 @@
         </div>
       </section>
 
-      <footer class="page-footer">AI Chat Storage · branch deployment test</footer>
+      <footer class="page-footer">Optimize How You Chat · branch prototype</footer>
     </main>
   </div>
 
