@@ -9,8 +9,6 @@ async function loadDashboard() {
   state.conversations = conversations;
   renderStats(stats);
   renderSessionDeck();
-  renderTopics(stats.topics);
-  renderDailyLearning(stats.dailyLearning || []);
   loadLeaderboard();
 }
 
@@ -210,23 +208,28 @@ function openDetail(id) {
     <p class="detail-summary">${escapeHtml(item.context || item.summary)}</p>
     <div class="insight-row">
       <div class="effort-card">
-        <span class="insight-label">Learning effort</span>
+        <span class="insight-label">Conversation effort</span>
         <strong>${item.effortScore}<small>/100</small></strong>
         <div class="effort-track"><span style="width:${Math.max(0, Math.min(100, item.effortScore))}%"></span></div>
-        <p>Based on observable questions, follow-ups, attempts, and application.</p>
+        <p>Observed from the user's questions, follow-ups, corrections, attempts, and application.</p>
       </div>
       <div class="detail-block">
-        <h4>Keywords</h4>
-        <div class="tag-list">${(item.keywords || []).map((value) => `<span class="tag">${escapeHtml(value)}</span>`).join('')}</div>
-        <h4 class="mt-lg">How you learnt</h4>
-        <p class="detail-method">${escapeHtml(item.studyMethod)} · ${escapeHtml(item.difficulty)}</p>
+        <h4>Optimization lens</h4>
+        <div class="tag-list"><span class="tag">Missing context</span><span class="tag">Iteration friction</span><span class="tag">Prompt clarity</span></div>
+        <h4 class="mt-lg">Conversation takeaway</h4>
+        <p class="detail-method">Look for information the user had to provide later that could have been supplied earlier.</p>
       </div>
     </div>
     <div class="detail-columns">
       <div class="detail-block"><h4>Key learnings</h4><ul>${(item.keyLearnings || []).map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul></div>
       <div class="detail-block"><h4>Concepts</h4><div class="tag-list">${(item.concepts || []).map((value) => `<span class="tag">${escapeHtml(value)}</span>`).join('')}</div></div>
     </div>
-    <div class="detail-block detail-spaced"><h4>Next steps</h4><ul>${(item.nextSteps || []).map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul></div>
+    <div class="detail-block detail-spaced"><h4>What could be improved</h4><ul>
+      <li>Identify requirements or constraints introduced only after the first answer.</li>
+      <li>Flag corrections, clarifications, and avoidable back-and-forth.</li>
+      <li>Suggest a stronger first prompt using the missing context.</li>
+    </ul></div>
+    <div class="detail-block detail-spaced"><h4>Current learning notes</h4><ul>${(item.nextSteps || []).map((value) => `<li>${escapeHtml(value)}</li>`).join('')}</ul></div>
     <div class="detail-footer">
       <span>Estimated ${item.estimatedMinutes} minutes · ${formatDate(item.importedAt)}</span>
       <div class="detail-actions">
@@ -289,4 +292,4 @@ document.querySelectorAll('.sidebar nav a').forEach((link) => link.addEventListe
 }));
 $('#leaderboard-sort').addEventListener('change', () => loadLeaderboard().catch(() => {}));
 $('#leaderboard-provider').addEventListener('change', () => loadLeaderboard().catch(() => {}));
-loadDashboard().catch((error) => { $('#session-list').innerHTML = `<div class="empty"><span>!</span><p>Could not load your journal</p><small>${escapeHtml(error.message || 'Make sure the Spring Boot server is running.')}</small></div>`; });
+loadDashboard().catch((error) => { $('#session-deck').innerHTML = `<div class="empty"><span>!</span><p>Could not load your journal</p><small>${escapeHtml(error.message || 'Make sure the Spring Boot server is running.')}</small></div>`; });
