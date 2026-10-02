@@ -112,7 +112,9 @@ public class GoogleAiAnalyzer {
         int score = Math.min(95, Math.max(10, 10 + userTurns * 8 + Math.min(35, userWords / 8)));
         return new ConversationAnalysis(analysis.title(), analysis.topic(), analysis.summary(), analysis.context(),
                 analysis.keywords(), score, analysis.keyLearnings(), analysis.concepts(), analysis.studyMethod(),
-                analysis.estimatedMinutes(), analysis.difficulty(), analysis.nextSteps());
+                analysis.estimatedMinutes(), analysis.difficulty(), analysis.nextSteps(),
+                safe(analysis.missingContext()), safe(analysis.frictionPoints()), safe(analysis.userCorrections()), safe(analysis.clarificationPoints()),
+                analysis.betterFirstPrompt() == null ? "" : analysis.betterFirstPrompt());
     }
 
     private List<String> safe(List<String> value) { return value == null ? List.of() : value; }
