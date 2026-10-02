@@ -36,13 +36,13 @@ public class ConversationRepository {
                 study_method=excluded.study_method, difficulty=excluded.difficulty, estimated_minutes=excluded.estimated_minutes,
                 analyzed_at=excluded.analyzed_at, analysis_status=excluded.analysis_status,
                 key_learnings_json=excluded.key_learnings_json, concepts_json=excluded.concepts_json,
-                next_steps_json=excluded.next_steps_json, transcript=excluded.transcript
+                next_steps_json=excluded.next_steps_json, missing_context_json=excluded.missing_context_json, friction_points_json=excluded.friction_points_json, user_corrections_json=excluded.user_corrections_json, clarification_points_json=excluded.clarification_points_json, better_first_prompt=excluded.better_first_prompt, transcript=excluded.transcript
                 """,
                 conversation.id(), conversation.provider(), conversation.sourceUrl(), conversation.title(), conversation.summary(), conversation.context(), json(conversation.keywords()), conversation.effortScore(), conversation.inputTokens(), conversation.outputTokens(),
                 conversation.topic(), conversation.studyMethod(), conversation.difficulty(), conversation.estimatedMinutes(),
                 conversation.importedAt().toString(), conversation.analyzedAt() == null ? null : conversation.analyzedAt().toString(),
                 conversation.analysisStatus(), json(conversation.keyLearnings()), json(conversation.concepts()),
-                json(conversation.nextSteps()), conversation.transcript());
+                json(conversation.nextSteps()), json(conversation.missingContext()), json(conversation.frictionPoints()), json(conversation.userCorrections()), json(conversation.clarificationPoints()), conversation.betterFirstPrompt(), conversation.transcript());
     }
 
     public List<Conversation> findAll() {
@@ -93,6 +93,11 @@ public class ConversationRepository {
         addColumnIfMissing("effort_score", "INTEGER NOT NULL DEFAULT 0");
         addColumnIfMissing("input_tokens", "INTEGER NOT NULL DEFAULT 0");
         addColumnIfMissing("output_tokens", "INTEGER NOT NULL DEFAULT 0");
+        addColumnIfMissing("missing_context_json", "TEXT NOT NULL DEFAULT '[]'");
+        addColumnIfMissing("friction_points_json", "TEXT NOT NULL DEFAULT '[]'");
+        addColumnIfMissing("user_corrections_json", "TEXT NOT NULL DEFAULT '[]'");
+        addColumnIfMissing("clarification_points_json", "TEXT NOT NULL DEFAULT '[]'");
+        addColumnIfMissing("better_first_prompt", "TEXT NOT NULL DEFAULT ''");
     }
 
     private void addColumnIfMissing(String name, String definition) {
